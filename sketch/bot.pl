@@ -8,15 +8,11 @@ use Redmine::Chan;
 use utf8;
 
 my $minechan = Redmine::Chan->new(%{pit_get('redmine', require => {
-    irc_server      => '',
-    irc_port        => '',
-    irc_password    => '',
     redmine_url     => '',
     redmine_api_key => '',
 })},
-    irc_channels    => {
-        '#onishi'  => { project_id => 6 },
-        '#onitest' => { project_id => 6 },
+    skype_chats => {
+        '#t.akiym/$akiym_bot;f8efe7736e507088' => {project_id => 1}
     },
     status_commands => {
         1 => [qw/new/], # 新規
@@ -30,5 +26,6 @@ my $minechan = Redmine::Chan->new(%{pit_get('redmine', require => {
         2 => [qw(origin/)], # branch
     },
     issue_fields => [qw/subject assigned_to status 1/],
+    nick => 'minechan',
 );
 $minechan->cook;

@@ -191,6 +191,9 @@ sub create_issue {
         subject    => $msg,
     };
 
+    use Data::Dumper;
+    warn Dumper($issue);
+
     my $res = eval { $self->post(
         'issues.json',
         Content_Type => 'application/json',
@@ -209,9 +212,6 @@ sub update_issue {
     my $issue = {};
     ($msg, $issue) = $self->detect_issue($msg);
     scalar %$issue or return;
-
-    use Data::Dumper;
-    warn Dumper $issue;
 
     # XXX: WebService::Simple に put 実装されてないので LWP::UserAgent の put 叩いてる
     return $self->put(

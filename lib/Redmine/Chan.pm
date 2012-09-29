@@ -4,19 +4,14 @@ use warnings;
 use strict;
 our $VERSION = '0.01';
 
-use AnyEvent;
-use AnyEvent::IRC::Connection;
-use AnyEvent::IRC::Client;
+use Skype::Any;
 
 use Redmine::Chan::API;
 use Redmine::Chan::Recipe;
 
 use Class::Accessor::Lite (
     rw => [ qw(
-        irc_server
-        irc_port
-        irc_channels
-        irc_password
+        skype_chats
         nick
         redmine_url
         redmine_api_key
@@ -37,9 +32,9 @@ sub new {
 
 sub init {
     my $self = shift;
-    my $cv = AnyEvent->condvar;
-    my $irc = AnyEvent::IRC::Client->new;
-    $self->nick($self->nick || 'minechan');
+    my $skype = Skype::Any->new(
+        name => 'Redmine::Chan',
+    );
 
     my $api = Redmine::Chan::API->new;
     $api->base_url($self->redmine_url);
@@ -51,58 +46,37 @@ sub init {
     $self->api($api);
 
     my $recipe = Redmine::Chan::Recipe->new(
-        api      => $self->api,
-        nick     => $self->nick,
-        channels => $self->irc_channels,
+        api   => $self->api,
+        nick  => $self->nick,
+        chats => $self->skype_chats,
     );
     $self->recipe($recipe);
 
-    $irc->reg_cb(
-        registered => sub {
-            print "registered.\n";
-        },
-        disconnect => sub {
-            print "disconnected.\n";
-        },
-        publicmsg => sub {
-            my ($irc, $channel, $ircmsg) = @_;
-            my (undef, $who) = $irc->split_nick_mode($ircmsg->{prefix});
+    $skype->message_received(sub {
+        my ($msg) = @_;
+
+        my $chat = $msg->chat;
+        my $status = $chat->status;
+        if ($status eq 'DIALOG') {
+            my $msg = $api->set_api_key($msg->from_handle, $msg->body);
+            $chat->send_message($msg);
+        } elsif ($status eq 'MULTI_SUBSCRIBED') {
             my $msg = $self->recipe->cook(
-                irc     => $irc,
-                channel => $channel,
-                ircmsg  => $ircmsg,
-                who     => $who,
+                skype => $skype,
+                chat  => $msg->chatname,
+                body  => $msg->body,
+                who   => $msg->from_handle,
             );
-            $irc->send_chan($channel, "NOTICE", $channel, $msg) if $msg;
-        },
-        privatemsg => sub {
-            # TODO
-            my ($irc, $channel, $ircmsg) = @_;
-            my (undef, $who) = $irc->split_nick_mode($ircmsg->{prefix});
-            my $key = $ircmsg->{params}[1];
-            my $msg = $api->set_api_key($who, $key);
-            $irc->send_msg("PRIVMSG", $who, $msg);
-        },
-    );
-    $self->{cv}  = $cv;
-    $self->{irc} = $irc;
+            $chat->send_message($msg) if $msg;
+        }
+    });
+
+    $self->{skype} = $skype;
 }
 
 sub cook {
     my $self = shift;
-    my $cv  = $self->{cv};
-    my $irc = $self->{irc};
-    my $info = {
-        nick     => $self->nick,
-        real     => $self->nick,
-        password => $self->irc_password,
-    };
-    $irc->connect($self->irc_server, $self->irc_port || 6667, $info);
-    for my $name (keys %{$self->irc_channels}) {
-        $irc->send_srv("JOIN", $name);
-    }
-    $cv->recv;
-    $irc->disconnect;
+    $self->{skype}->run;
 }
 
 *run = \&cook;
