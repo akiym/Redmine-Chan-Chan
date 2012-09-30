@@ -35,6 +35,7 @@ sub init {
     my $skype = Skype::Any->new(
         name => 'Redmine::Chan',
     );
+    $self->nick($self->nick || 'minechan');
 
     my $api = Redmine::Chan::API->new;
     $api->base_url($self->redmine_url);

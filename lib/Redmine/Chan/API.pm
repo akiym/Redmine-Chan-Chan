@@ -191,9 +191,6 @@ sub create_issue {
         subject    => $msg,
     };
 
-    use Data::Dumper;
-    warn Dumper($issue);
-
     my $res = eval { $self->post(
         'issues.json',
         Content_Type => 'application/json',
